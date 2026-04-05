@@ -411,7 +411,7 @@ var STATI = [
   {id:'bozza',     label:'Bozza',            color:'#9a8e82', bg:'#f0ebe0'},
   {id:'inviato',   label:'Inviato',          color:'#c9943a', bg:'#fef3e2'},
   {id:'accettato', label:'Accettato',        color:'#7a9e7e', bg:'#e8f4eb'},
-  {id:'acconto',   label:'Acconto ricevuto', color:'#4a7c59', bg:'#d4edda'},
+  {id:'caparra',   label:'Caparra ricevuta', color:'#4a7c59', bg:'#d4edda'},
   {id:'completato',label:'Completato',       color:'#1a1612', bg:'#d4c9b8'},
   {id:'annullato', label:'Annullato',        color:'#b85c38', bg:'#fdeee9'}
 ];
@@ -456,130 +456,7 @@ function saveToSupabase(ev,cb){
   .catch(function(){if(cb)cb();});
 }
 
-// Calcola totale acconti
-function totAcconti(ev) {
-  if (!ev.acconti || !ev.acconti.length) return ev.caparra || 0;
-  return ev.acconti.reduce(function(s,a){return s+(a.importo||0);},0);
-}
-
-// HTML riepilogo acconti per modal
-function accontiHTML(ev, id) {
-  var tot = totAcconti(ev);
-  var saldo = 0; var mostraSaldo = false;
-  if (ev.mode==='fixed' && ev.prezziApplicati && ev.prezziApplicati.length>0) {
-    saldo = Math.max(0, ev.prezziApplicati[0].priceIva*(ev.paxFixed||1) - tot);
-    mostraSaldo = true;
-  }
-  var acconti = ev.acconti || (ev.caparra ? [{importo:ev.caparra,data:'',nota:''}] : []);
-
-  var html = '<div class="card" style="margin-bottom:14px;border-color:#4a7c59;">'+
-    '<div class="card-title" style="color:#4a7c59;">Acconti ricevuti</div>';
-
-  // Lista acconti
-  if (acconti.length===0) {
-    html += '<div style="font-size:13px;color:var(--muted);margin-bottom:12px;">Nessun acconto registrato.</div>';
-  } else {
-    html += '<div style="margin-bottom:12px;">';
-    for (var i=0;i<acconti.length;i++) {
-      var a=acconti[i];
-      html += '<div style="display:-webkit-flex;display:flex;-webkit-align-items:center;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--cream);">'+
-        '<div style="-webkit-flex:1;flex:1;">'+
-          '<div style="font-family:\'DM Mono\',monospace;font-size:13px;font-weight:700;color:#4a7c59;">'+fmt(a.importo)+'</div>'+
-          (a.data?'<div style="font-size:11px;color:var(--muted);">'+df(a.data)+'</div>':'')+
-          (a.nota?'<div style="font-size:11px;color:var(--muted);">'+a.nota+'</div>':'')+
-        '</div>'+
-        '<button onclick="rimuoviAcconto('+id+','+i+')" style="background:none;border:none;color:var(--terra);font-size:18px;cursor:pointer;padding:0 4px;">×</button>'+
-        '</div>';
-    }
-    html += '</div>';
-  }
-
-  // Totale + saldo
-  html += '<div style="display:-webkit-flex;display:flex;gap:8px;margin-bottom:12px;">'+
-    '<div style="-webkit-flex:1;flex:1;background:#d4edda;border-radius:10px;padding:12px;text-align:center;">'+
-      '<div style="font-family:\'DM Mono\',monospace;font-size:9px;letter-spacing:1px;text-transform:uppercase;color:#4a7c59;margin-bottom:3px;">Totale acconti</div>'+
-      '<div style="font-family:\'Playfair Display\',serif;font-size:22px;font-weight:900;color:#4a7c59;">'+fmt(tot)+'</div>'+
-    '</div>';
-  if (mostraSaldo) {
-    html += '<div style="-webkit-flex:1;flex:1;background:#fdeee9;border-radius:10px;padding:12px;text-align:center;">'+
-      '<div style="font-family:\'DM Mono\',monospace;font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--terra);margin-bottom:3px;">Saldo</div>'+
-      '<div style="font-family:\'Playfair Display\',serif;font-size:22px;font-weight:900;color:var(--terra);">'+fmt(saldo)+'</div>'+
-    '</div>';
-  }
-  html += '</div>';
-
-  // Form aggiunta acconto
-  html += '<div style="background:var(--cream);border-radius:10px;padding:12px;">'+
-    '<div style="font-family:\'DM Mono\',monospace;font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-bottom:10px;">+ Aggiungi acconto</div>'+
-    '<div style="display:-webkit-flex;display:flex;gap:8px;margin-bottom:8px;">'+
-      '<div style="-webkit-flex:1;flex:1;">'+
-        '<label style="font-family:\'DM Mono\',monospace;font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);display:block;margin-bottom:4px;">Importo €</label>'+
-        '<input type="number" id="acc-importo" placeholder="0.00" step="0.01" min="0" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:15px;">'+
-      '</div>'+
-      '<div style="-webkit-flex:1;flex:1;">'+
-        '<label style="font-family:\'DM Mono\',monospace;font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);display:block;margin-bottom:4px;">Data</label>'+
-        '<input type="date" id="acc-data" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:15px;">'+
-      '</div>'+
-    '</div>'+
-    '<input type="text" id="acc-nota" placeholder="Nota opzionale..." style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:14px;margin-bottom:8px;">'+
-    '<button onclick="aggiungiAcconto('+id+')" style="width:100%;padding:11px;background:#4a7c59;color:#fff;border:none;border-radius:8px;font-family:\'DM Mono\',monospace;font-size:12px;font-weight:600;cursor:pointer;letter-spacing:.5px;">Salva acconto</button>'+
-  '</div></div>';
-  return html;
-}
-
-function aggiungiAcconto(id) {
-  var ev=null; for(var i=0;i<events.length;i++){if(events[i].id===id){ev=events[i];break;}} if(!ev)return;
-  var importo=parseFloat((document.getElementById('acc-importo').value||'0').replace(',','.'));
-  if(!importo||importo<=0){toast('Inserisci un importo valido');return;}
-  var data=document.getElementById('acc-data').value||'';
-  var nota=document.getElementById('acc-nota').value||'';
-  if(!ev.acconti) ev.acconti=ev.caparra?[{importo:ev.caparra,data:'',nota:'Acconto iniziale'}]:[];
-  ev.acconti.push({importo:importo,data:data,nota:nota});
-  ev.stato='acconto';
-  ev.snapshot=makeSnapshot(ev);
-  updateStatoSupabase(ev._sbId,function(){
-    toast('Acconto salvato!');
-    renderList('ev-list');
-    if(document.getElementById('vd').classList.contains('active')) updateDash();
-    openModal(id);
-  });
-}
-
-function rimuoviAcconto(id, idx) {
-  var ev=null; for(var i=0;i<events.length;i++){if(events[i].id===id){ev=events[i];break;}} if(!ev)return;
-  if(!confirm('Rimuovere questo acconto?'))return;
-  ev.acconti.splice(idx,1);
-  if(ev.acconti.length===0) ev.stato='accettato';
-  ev.snapshot=makeSnapshot(ev);
-  updateStatoSupabase(ev._sbId,function(){
-    toast('Acconto rimosso');
-    renderList('ev-list');
-    if(document.getElementById('vd').classList.contains('active')) updateDash();
-    openModal(id);
-  });
-}
-
-function duplicaEvento(id) {
-  var src=null; for(var i=0;i<events.length;i++){if(events[i].id===id){src=events[i];break;}} if(!src)return;
-  // Deep copy
-  var ev=JSON.parse(JSON.stringify(src));
-  ev.id=nextId++;
-  ev._sbId=null;
-  ev.stato='bozza';
-  ev.acconti=[];
-  ev.caparra=0;
-  ev.cliente=ev.cliente+' (copia)';
-  ev.snapshot=makeSnapshot(ev);
-  events.push(ev);
-  closeModal();
-  toast('Evento duplicato come bozza');
-  saveToSupabase(ev,function(){
-    renderList('ev-list');
-    if(document.getElementById('vd').classList.contains('active')) updateDash();
-    // Apri il modal del duplicato per modificarlo subito
-    openModal(ev.id);
-  });
-}
+function updateStatoSupabase(sbId,cb){
   var ev=null; for(var i=0;i<events.length;i++){if(events[i]._sbId===sbId){ev=events[i];break;}}
   if(!ev){if(cb)cb();return;}
   ev.snapshot=makeSnapshot(ev);
@@ -885,26 +762,12 @@ function evCardHTML(ev){
     });
     prezziHTML+='</div>';
   }
-  var accontiResume='';
-  if(ev.acconti&&ev.acconti.length>0){
-    var tot=totAcconti(ev);
-    accontiResume='<div style="margin-top:6px;padding-top:6px;border-top:1px solid var(--border);display:-webkit-flex;display:flex;-webkit-justify-content:space-between;justify-content:space-between;">'+
-      '<span style="font-family:\'DM Mono\',monospace;font-size:11px;color:#4a7c59;">Acconti ('+ev.acconti.length+')</span>'+
-      '<span style="font-family:\'DM Mono\',monospace;font-size:11px;font-weight:700;color:#4a7c59;">'+fmt(tot)+'</span>'+
-      '</div>';
-  }
-  return'<div class="ev-card">'+
-    '<div onclick="openModal('+ev.id+')" style="-webkit-tap-highlight-color:transparent;">'+
+  return'<div class="ev-card" onclick="openModal('+ev.id+')">'+
     '<div class="ev-card-top"><div class="ev-name">'+ev.cliente+'</div><span class="ev-badge '+bc+'">'+mdc+'</span></div>'+
     '<div style="margin-bottom:6px;">'+modeBadge+'<span style="display:inline-block;padding:3px 11px;border-radius:20px;font-size:11px;font-family:\'DM Mono\',monospace;font-weight:600;background:'+stato.bg+';color:'+stato.color+';">'+stato.label+'</span></div>'+
     '<div class="ev-meta">'+df(ev.data)+' · '+(ev.location||'—')+'</div>'+
     '<div class="ev-fasce">'+modeLbl+' · best price '+price+'</div>'+
-    prezziHTML+accontiResume+
-    '</div>'+
-    '<div style="display:-webkit-flex;display:flex;gap:8px;margin-top:10px;">'+
-      '<button onclick="openModal('+ev.id+')" style="-webkit-flex:1;flex:1;padding:9px;background:var(--ink);color:var(--gold);border:none;border-radius:8px;font-family:\'DM Mono\',monospace;font-size:11px;cursor:pointer;">Apri</button>'+
-      '<button onclick="duplicaEvento('+ev.id+')" style="padding:9px 14px;background:none;border:1.5px solid var(--gold);color:var(--gold);border-radius:8px;font-family:\'DM Mono\',monospace;font-size:11px;cursor:pointer;">⧉ Duplica</button>'+
-    '</div>'+
+    prezziHTML+
     '</div>';
 }
 function renderList(id){
@@ -930,23 +793,17 @@ function updateDash(){
   for(var s=0;s<STATI.length;s++) gruppi[STATI[s].id]=[];
   for(var i=0;i<events.length;i++){var sid=events[i].stato||'bozza';if(!gruppi[sid])gruppi[sid]=[];gruppi[sid].push(events[i]);}
 
-  var totAccontiTot=0,totDaRicevere=0;
+  var totCaparre=0,totDaRicevere=0;
   for(var i2=0;i2<events.length;i2++){
     var ev2=events[i2],b2=bestFor(ev2);
-    var tot2=totAcconti(ev2);
-    totAccontiTot+=tot2;
-    if(ev2.mode==='fixed'&&ev2.prezziApplicati&&ev2.prezziApplicati.length>0){
-      var prezzoTot2=ev2.prezziApplicati[0].priceIva*(ev2.paxFixed||1);
-      if(tot2>0||ev2.stato==='accettato') totDaRicevere+=Math.max(0,prezzoTot2-tot2);
-    } else if(ev2.stato==='accettato'){
-      var b2p=bestFor(ev2);
-      if(b2p) totDaRicevere+=b2p.priceTarget*(ev2.paxFixed||1);
-    }
+    var prezzoTot=b2?b2.priceTarget*(ev2.mode==='fixed'?(ev2.paxFixed||1):(ev2.fasce&&ev2.fasce[0]?ev2.fasce[0].min:1)):0;
+    if(ev2.stato==='caparra'){totCaparre+=ev2.caparra||0;totDaRicevere+=Math.max(0,prezzoTot-(ev2.caparra||0));}
+    if(ev2.stato==='accettato') totDaRicevere+=prezzoTot;
   }
 
   var finanHTML='<div style="display:-webkit-flex;display:flex;-webkit-flex-wrap:wrap;flex-wrap:wrap;gap:12px;margin-bottom:20px;">'+
-    '<div class="stat" style="border-top:3px solid #4a7c59;min-width:140px;"><div class="stat-lbl">Acconti ricevuti</div><div class="stat-val" style="color:#4a7c59;font-size:20px;">'+fmt(totAccontiTot)+'</div></div>'+
-    '<div class="stat" style="border-top:3px solid var(--gold);min-width:140px;"><div class="stat-lbl">Da incassare</div><div class="stat-val" style="color:var(--gold);font-size:20px;">'+fmt(totDaRicevere)+'</div><div class="stat-note">accettati + acconti</div></div>'+
+    '<div class="stat" style="border-top:3px solid #4a7c59;min-width:140px;"><div class="stat-lbl">Caparre ricevute</div><div class="stat-val" style="color:#4a7c59;font-size:20px;">'+fmt(totCaparre)+'</div></div>'+
+    '<div class="stat" style="border-top:3px solid var(--gold);min-width:140px;"><div class="stat-lbl">Da incassare</div><div class="stat-val" style="color:var(--gold);font-size:20px;">'+fmt(totDaRicevere)+'</div><div class="stat-note">accettati + caparre</div></div>'+
     '</div>';
 
   var statiHTML='<div style="margin-bottom:20px;">';
@@ -988,8 +845,8 @@ function updateDash(){
     } else {
       for(var k=0;k<evs3.length;k++){
         var ev3=evs3[k],b3=bestFor(ev3);
-                var pax3=ev3.mode==='fixed'?(ev3.paxFixed||1):(ev3.fasce&&ev3.fasce[0]?ev3.fasce[0].min:1);
-        var b3=bestFor(ev3);
+        var pax3=ev3.mode==='fixed'?(ev3.paxFixed||1):(ev3.fasce&&ev3.fasce[0]?ev3.fasce[0].min:1);
+        var prezzoEvento3=b3?b3.priceTarget*pax3:0,caparra3=ev3.caparra||0,saldo3=Math.max(0,prezzoEvento3-caparra3);
         kanbanHTML+='<div onclick="openModal('+ev3.id+')" style="background:var(--cream);border-radius:8px;padding:10px 11px;margin-bottom:7px;cursor:pointer;-webkit-tap-highlight-color:transparent;">'+
           '<div style="display:-webkit-flex;display:flex;-webkit-justify-content:space-between;justify-content:space-between;-webkit-align-items:flex-start;align-items:flex-start;margin-bottom:3px;">'+
             '<div style="font-family:\'Playfair Display\',serif;font-size:14px;font-weight:700;">'+ev3.cliente+'</div>'+
@@ -997,20 +854,16 @@ function updateDash(){
           '</div>'+
           '<div style="font-family:\'DM Mono\',monospace;font-size:10px;color:var(--muted);margin-bottom:5px;">'+df(ev3.data)+(ev3.location?' · '+ev3.location:'')+'</div>'+
           (b3?'<div style="font-family:\'DM Mono\',monospace;font-size:11px;color:var(--gold);font-weight:600;">'+fs(b3.priceTarget)+'/pax</div>':'');
-        if((ev3.acconti&&ev3.acconti.length>0)){
-          var tot3=totAcconti(ev3);
-          var b3fix=ev3.mode==='fixed'&&ev3.prezziApplicati&&ev3.prezziApplicati.length>0;
-          var saldo3=b3fix?Math.max(0,ev3.prezziApplicati[0].priceIva*(ev3.paxFixed||1)-tot3):null;
+        if(ev3.stato==='caparra'&&caparra3>0){
           kanbanHTML+='<div style="margin-top:6px;padding-top:6px;border-top:1px solid var(--border);">'+
             '<div style="display:-webkit-flex;display:flex;-webkit-justify-content:space-between;justify-content:space-between;margin-bottom:2px;">'+
-              '<span style="font-size:10px;color:#4a7c59;font-family:\'DM Mono\',monospace;">Acconti ('+ev3.acconti.length+')</span>'+
-              '<span style="font-size:11px;font-weight:700;color:#4a7c59;font-family:\'DM Mono\',monospace;">'+fmt(tot3)+'</span>'+
+              '<span style="font-size:10px;color:#4a7c59;font-family:\'DM Mono\',monospace;">Caparra</span>'+
+              '<span style="font-size:11px;font-weight:700;color:#4a7c59;font-family:\'DM Mono\',monospace;">'+fmt(caparra3)+'</span>'+
             '</div>'+
-            (saldo3!==null?'<div style="display:-webkit-flex;display:flex;-webkit-justify-content:space-between;justify-content:space-between;">'+
+            '<div style="display:-webkit-flex;display:flex;-webkit-justify-content:space-between;justify-content:space-between;">'+
               '<span style="font-size:10px;color:var(--terra);font-family:\'DM Mono\',monospace;">Saldo</span>'+
               '<span style="font-size:11px;font-weight:700;color:var(--terra);font-family:\'DM Mono\',monospace;">'+fmt(saldo3)+'</span>'+
-            '</div>':'')+
-          '</div>';
+            '</div></div>';
         }
         if(ev3.prezziApplicati&&ev3.prezziApplicati.length){
           kanbanHTML+='<div style="margin-top:5px;padding-top:5px;border-top:1px solid var(--border);">';
@@ -1042,20 +895,52 @@ function openModal(id){
   statoHTML+='</div></div>';
 
   var caparraHTML='';
-  if((ev.stato||'bozza')==='acconto'||(ev.acconti&&ev.acconti.length>0)) {
-    caparraHTML=accontiHTML(ev,id);
-  } else if((ev.stato||'bozza')==='accettato'){
-    // Mostra il form per aggiungere il primo acconto
-    caparraHTML=accontiHTML(ev,id);
+  if((ev.stato||'bozza')==='caparra'){
+    var caparra4=ev.caparra||0;
+    var saldo4=0;
+    var mostraSaldo=false;
+
+    if(ev.mode==='fixed' && ev.prezziApplicati && ev.prezziApplicati.length>0){
+      // Usa il prezzo scelto × pax fissi
+      var pax4=ev.paxFixed||1;
+      var prezzoScelto=ev.prezziApplicati[0].priceIva;
+      var prezzoTot4=prezzoScelto*pax4;
+      saldo4=Math.max(0,prezzoTot4-caparra4);
+      mostraSaldo=true;
+    }
+
+    if(mostraSaldo){
+      caparraHTML='<div class="card" style="margin-bottom:14px;border-color:#4a7c59;"><div class="card-title" style="color:#4a7c59;">Caparra e saldo</div>'+
+        '<div style="display:-webkit-flex;display:flex;gap:10px;">'+
+          '<div style="-webkit-flex:1;flex:1;background:#d4edda;border-radius:10px;padding:12px;text-align:center;">'+
+            '<div style="font-family:\'DM Mono\',monospace;font-size:10px;letter-spacing:1px;text-transform:uppercase;color:#4a7c59;margin-bottom:4px;">Caparra ricevuta</div>'+
+            '<div style="font-family:\'Playfair Display\',serif;font-size:24px;font-weight:900;color:#4a7c59;">'+fmt(caparra4)+'</div>'+
+          '</div>'+
+          '<div style="-webkit-flex:1;flex:1;background:#fdeee9;border-radius:10px;padding:12px;text-align:center;">'+
+            '<div style="font-family:\'DM Mono\',monospace;font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--terra);margin-bottom:4px;">Saldo da ricevere</div>'+
+            '<div style="font-family:\'Playfair Display\',serif;font-size:24px;font-weight:900;color:var(--terra);">'+fmt(saldo4)+'</div>'+
+          '</div>'+
+        '</div>'+
+        '<div style="text-align:center;margin-top:10px;"><button onclick="cambiaStato('+id+',\'caparra\')" style="background:none;border:1px dashed #4a7c59;border-radius:8px;padding:7px 16px;font-family:\'DM Mono\',monospace;font-size:11px;color:#4a7c59;cursor:pointer;">✏ Modifica importo</button></div>'+
+        '</div>';
+    } else {
+      // Modalità fasce oppure fixed senza prezzo scelto: solo caparra
+      caparraHTML='<div class="card" style="margin-bottom:14px;border-color:#4a7c59;"><div class="card-title" style="color:#4a7c59;">Caparra ricevuta</div>'+
+        '<div style="background:#d4edda;border-radius:10px;padding:16px;text-align:center;">'+
+          '<div style="font-family:\'Playfair Display\',serif;font-size:32px;font-weight:900;color:#4a7c59;">'+fmt(caparra4)+'</div>'+
+          '<div style="font-family:\'DM Mono\',monospace;font-size:10px;color:#4a7c59;margin-top:4px;">Il saldo dipende dal prezzo concordato</div>'+
+        '</div>'+
+        '<div style="text-align:center;margin-top:10px;"><button onclick="cambiaStato('+id+',\'caparra\')" style="background:none;border:1px dashed #4a7c59;border-radius:8px;padding:7px 16px;font-family:\'DM Mono\',monospace;font-size:11px;color:#4a7c59;cursor:pointer;">✏ Modifica importo</button></div>'+
+        '</div>';
+    }
   }
 
   setEl('m-title',ev.cliente);
   setEl('m-sub',(ev.location||'—')+' · '+df(ev.data));
   document.getElementById('m-body').innerHTML=statoHTML+caparraHTML+pricingHTMLReadonly(ev)+snapHTML(ev.snapshot)+
-    '<div style="display:-webkit-flex;display:flex;gap:8px;margin-top:4px;-webkit-flex-wrap:wrap;flex-wrap:wrap;">'+
-    '<button class="btn btn-print" onclick="stampaEvento('+ev.id+')" style="-webkit-flex:1;flex:1;border-radius:12px;padding:14px;min-width:100px;">🖨 PDF</button>'+
-    '<button class="btn btn-ghost" onclick="duplicaEvento('+ev.id+')" style="border-radius:12px;padding:14px;color:var(--gold);border-color:var(--gold)!important;min-width:100px;">⧉ Duplica</button>'+
-    '<button class="btn btn-ghost" onclick="eliminaEvento('+ev.id+')" style="border-radius:12px;padding:14px;color:#b85c38;border-color:#b85c38!important;min-width:44px;">🗑</button>'+
+    '<div style="display:-webkit-flex;display:flex;gap:10px;margin-top:4px;">'+
+    '<button class="btn btn-print" onclick="stampaEvento('+ev.id+')" style="-webkit-flex:1;flex:1;border-radius:12px;padding:14px;">🖨 Stampa / PDF</button>'+
+    '<button class="btn btn-ghost" onclick="eliminaEvento('+ev.id+')" style="border-radius:12px;padding:14px;color:#b85c38;border-color:#b85c38!important;">🗑 Elimina</button>'+
     '</div>';
   document.getElementById('modal-ov').className='modal-ov open';
   document.getElementById('modal-inner').scrollTop=0;
@@ -1107,9 +992,14 @@ function pricingHTMLReadonly(ev){
 
 function cambiaStato(id,nuovoStato){
   var ev=null;for(var i=0;i<events.length;i++){if(events[i].id===id){ev=events[i];break;}}if(!ev)return;
-  // Se si imposta "acconto" apri direttamente il form acconti tramite openModal
+  if(nuovoStato==='caparra'){
+    var input=prompt('Valore della caparra ricevuta (€):',ev.caparra||'');
+    if(input===null)return;
+    var cap=parseFloat(input.replace(',','.'));
+    if(isNaN(cap)||cap<0){toast('Valore non valido');return;}
+    ev.caparra=cap;
+  }
   ev.stato=nuovoStato;
-  ev.snapshot=makeSnapshot(ev);
   updateStatoSupabase(ev._sbId,function(){
     toast('Stato: '+statoById(nuovoStato).label);
     if(document.getElementById('vd').classList.contains('active')) updateDash();
